@@ -1,0 +1,6 @@
+.venv/*
+__pycache__/*
+*.pyc
+tests/data/gedfile_vanveen.ged
+tests/output/*
+run.txt
