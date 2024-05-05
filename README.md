@@ -2,6 +2,10 @@
 
 Converting GED files to static web pages.
 
+Example:
+
+[https://genealogie.vanveen.io](https://genealogie.vanveen.io)
+
 Usage:
 
 ```bash
