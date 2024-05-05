@@ -14,4 +14,4 @@ python -m gedhtml tests/data/kennedies.ged -o tests/output/ -t "Kennedy Genealog
 
 CSS layout taken from:
 
-[https://github.com/pure-css/pure/tree/master/site/static/layouts/side-menu](Pure CSS)
+[Pure CSS](https://github.com/pure-css/pure/tree/master/site/static/layouts/side-menu)
