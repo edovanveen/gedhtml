@@ -7,7 +7,7 @@ import gedhtml
 import gedhtml.webpage
 
 
-def generate_website(family_tree_dict, id, output_dir="", title="", description="", filter_ids=None):
+def generate_website(family_tree, ref, output_dir="", title="", description="", filter_refs=None):
 
     root_dir = os.path.dirname(os.path.dirname(__file__))
     webfiles_dir = os.path.join(root_dir, 'webfiles')
@@ -15,29 +15,31 @@ def generate_website(family_tree_dict, id, output_dir="", title="", description=
     for f in webfiles:
         shutil.copy2(os.path.join(webfiles_dir, f), output_dir)
 
-    html_doc = gedhtml.webpage.generate_individual_page(family_tree_dict, id, title, description)
+    html_doc = gedhtml.webpage.generate_individual_page(family_tree, ref, title, description)
     path_index = os.path.join(output_dir, "index.html")
     with open(path_index, "w", encoding="utf-8") as file:
         file.write(html_doc)
 
-    html_doc = gedhtml.webpage.generate_name_index(family_tree_dict, title, description)
+    html_doc = gedhtml.webpage.generate_name_index(family_tree, title, description)
     path_name_index = os.path.join(output_dir, "name_index.html")
     with open(path_name_index, "w", encoding="utf-8") as file:
         file.write(html_doc)
 
-    ids = list(family_tree_dict.keys())
-    for id in ids:
+    refs = list(family_tree.individuals.keys())
+    for ref in refs:
         include = True
-        if filter_ids is not None:
-            i = family_tree_dict[id]
-            family = i.list_children(family_tree_dict) + i.list_spouses(family_tree_dict) + i.list_parents(family_tree_dict) + i.list_siblings(family_tree_dict) + [i]
+        if filter_refs is not None:
+            i = family_tree.individuals[ref]
+            spouses, _ = family_tree.get_spouses(i)
+            family = family_tree.get_children(i) + spouses + family_tree.get_parents(i) + family_tree.get_siblings(i) + [i]
             include = False
             for f in family:
-                if f.id in filter_ids:
+                if f.ref in filter_refs:
                     include = True
         if include:
-            html_doc = gedhtml.webpage.generate_individual_page(family_tree_dict, id, title, description)
-            path_individual = os.path.join(output_dir, f"{id}.html")
+            i = family_tree.individuals[ref]
+            html_doc = gedhtml.webpage.generate_individual_page(family_tree, ref, title, description)
+            path_individual = os.path.join(output_dir, i.link)
             with open(path_individual, "w", encoding="utf-8") as file:
                 file.write(html_doc)
 

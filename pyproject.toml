@@ -6,9 +6,9 @@ authors = ["Edo van Veen <edo@vanveen.io>"]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
-python-gedcom = "^1.0.0"
 matplotlib = "^3.8.4"
 yattag = "^1.15.2"
+ged4py = "^0.4.4"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.4.1"
