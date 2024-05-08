@@ -7,7 +7,9 @@ import gedhtml
 import gedhtml.webpage
 
 
-def generate_website(family_tree, ref, output_dir="", title="", description="", filter_refs=None):
+def generate_website(family_tree, id, output_dir="", title="", description="", filter_refs=None):
+
+    ref = f"@{id}@"
 
     root_dir = os.path.dirname(os.path.dirname(__file__))
     webfiles_dir = os.path.join(root_dir, 'webfiles')
@@ -49,15 +51,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="GED to static HTML converter")
     parser.add_argument("filename", help="GED filename")
     parser.add_argument("-s", "--startid", help="ID of person for start page")
-    parser.add_argument("-o", "--outputdir", help="ID of person for start page", default="")
+    parser.add_argument("-o", "--outputdir", help="Output directory", default="")
     parser.add_argument("-t", "--title", help="Website title", default="My<br>genealogy")
     parser.add_argument("-d", "--description", help="Website description", default="My genealogy page")
     args = parser.parse_args()
 
-    fam_dict = gedhtml.load_file(args.filename)
+    fam_tree = gedhtml.load_file(args.filename)
     if args.startid:
         id = args.startid
     else:
-        id = list(fam_dict.keys())[0]
+        ref = list(fam_tree.individuals.keys())[0]
+        id = fam_tree.individuals[ref].id
 
-    generate_website(fam_dict, id, args.outputdir, args.title, args.description)
+    generate_website(fam_tree, id, args.outputdir, args.title, args.description)

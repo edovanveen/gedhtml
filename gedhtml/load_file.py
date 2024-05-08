@@ -75,16 +75,17 @@ def load_file(file_path):
 
             # TODO: fix this
             # Start hack to deal with files with direct notes instead of note references.
-            override_notes = False
             note_refs = []
+            remove_refs = []
             for i, ref in enumerate(kwargs['note_refs']):
                 if ref[0] != '@' or ref[-1] != '@':
                     new_ref = f"{kwargs['ref']}-NOTE{i}"
                     family_tree.add_note(Note(new_ref, ref))
                     note_refs.append(new_ref)
-                    override_notes = True
-            if override_notes:
-                kwargs['note_refs'] = note_refs
+                    remove_refs.append(ref)
+            for ref in remove_refs:
+                kwargs['note_refs'].remove(ref)
+            kwargs['note_refs'] += note_refs
             # End hack.
 
             for ref in kwargs['note_refs']:
