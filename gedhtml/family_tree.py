@@ -12,7 +12,7 @@ def _truncate_names(names):
 @dataclass 
 class Individual:
     ref: str
-    note_refs: list[str]
+    notes: list[str]
     fam_child_refs: list[str]
     fam_spouse_refs: list[str]
     sex: str = "U"
@@ -26,7 +26,6 @@ class Individual:
     death_place: str = ""
     burial_date: str = ""
     burial_place: str = ""
-    override_private: bool = False
 
     @property
     def id(self) -> str:
@@ -49,11 +48,10 @@ class Individual:
     
     @property
     def private(self) -> bool:
-        if self.override_private:
-            return True
-        elif self.birth_year is None:
-            return False
-        elif self.birth_year < 1940:
+        for note in self.notes:
+            if note == "private":
+                return True
+        if self.birth_year is None or self.birth_year < 1940:
             return False
         return True
 
@@ -106,27 +104,17 @@ class Family:
     marriage_place: str = ""
 
 
-@dataclass
-class Note:
-    ref: str
-    value: str = ""
-
-
 class FamilyTree:
 
     def __init__(self):
         self.individuals = dict()  # Keys: Individual.ref; values: Individual
         self.families = dict()  # Keys: Family.ref; values: Family
-        self.notes = dict()  # Keys: Note.ref; values: Note
 
     def add_individual(self, individual: Individual):
         self.individuals[individual.ref] = individual
 
     def add_family(self, family: Family):
         self.families[family.ref] = family
-
-    def add_note(self, note: Note):
-        self.notes[note.ref] = note
 
     def get_children(self, individual: Individual) -> list[Individual]:
         children = []
@@ -166,6 +154,3 @@ class FamilyTree:
                 if child_ref != individual.ref:
                     siblings.append(self.individuals[child_ref])
         return siblings
-
-    def get_notes(self, individual: Individual) -> list[str]:
-        return [self.notes[ref] for ref in individual.note_refs]

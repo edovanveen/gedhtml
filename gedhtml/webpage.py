@@ -1,3 +1,7 @@
+import os
+import os.path
+import shutil
+
 from yattag import indent
 from yattag.indentation import XMLTokenError
 
@@ -201,8 +205,8 @@ def generate_individual_page(fam_tree, ref,
 
     html_string += "<h2>Notities</h2>\n"
     if not individual.private:
-        for note in fam_tree.get_notes(individual):
-            html_string += f"<p>{note.value.replace('\n', '<br>')}</p>\n"
+        for note in individual.notes:
+            html_string += f"<p>{note.replace('\n', '<br>')}</p>\n"
 
     html_string += footer()
     try:
@@ -278,3 +282,42 @@ def generate_name_index(fam_tree, title, description):
     html_string += f"\n{full_last_name_list}\n"
     html_string += footer()
     return indent(html_string)
+
+
+def generate(family_tree, id, output_dir="", title="", description="", filter_refs=None):
+
+    ref = f"@{id}@"
+
+    root_dir = os.path.dirname(os.path.dirname(__file__))
+    webfiles_dir = os.path.join(root_dir, 'webfiles')
+    webfiles = os.listdir(webfiles_dir)
+    for f in webfiles:
+        shutil.copy2(os.path.join(webfiles_dir, f), output_dir)
+
+    html_doc = generate_individual_page(family_tree, ref, title, description)
+    path_index = os.path.join(output_dir, "index.html")
+    with open(path_index, "w", encoding="utf-8") as file:
+        file.write(html_doc)
+
+    html_doc = generate_name_index(family_tree, title, description)
+    path_name_index = os.path.join(output_dir, "name_index.html")
+    with open(path_name_index, "w", encoding="utf-8") as file:
+        file.write(html_doc)
+
+    refs = list(family_tree.individuals.keys())
+    for ref in refs:
+        include = True
+        if filter_refs is not None:
+            i = family_tree.individuals[ref]
+            spouses, _ = family_tree.get_spouses(i)
+            family = family_tree.get_children(i) + spouses + family_tree.get_parents(i) + family_tree.get_siblings(i) + [i]
+            include = False
+            for f in family:
+                if f.ref in filter_refs:
+                    include = True
+        if include:
+            i = family_tree.individuals[ref]
+            html_doc = generate_individual_page(family_tree, ref, title, description)
+            path_individual = os.path.join(output_dir, i.link)
+            with open(path_individual, "w", encoding="utf-8") as file:
+                file.write(html_doc)
