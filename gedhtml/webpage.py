@@ -1,5 +1,11 @@
+import os
+import os.path
+import shutil
+
 from yattag import indent
 from yattag.indentation import XMLTokenError
+
+from gedhtml.describe import describe_individual, describe_marriage
 
 
 def header(title, description):
@@ -87,25 +93,28 @@ def pedigree_html(fam_names, links, colors):
         )
 
 
-def count_max_ancestors(family_tree_dict, id):
+def count_max_ancestors(family_tree, ref):
     
-    queue = [family_tree_dict[id]]
+    queue = [family_tree.individuals[ref]]
     max_gen = 0
     while len(queue) > 0:
         queue_parents = []
         for indiv in queue:
-            queue_parents += indiv.list_parents(family_tree_dict)
+            parents = family_tree.get_parents(indiv)
+            for parent in parents:
+                if parent is not None:
+                    queue_parents.append(parent)
         if len(queue_parents) > 0:
             max_gen += 1
             queue = queue_parents[:]
         else:
             queue = []
-    return max_gen      
+    return max_gen
 
 
-def make_pedigree(family_tree_dict, id):
+def make_pedigree(family_tree, ref):
 
-    individual = family_tree_dict[id]
+    individual = family_tree.individuals[ref]
 
     base_colors = [["#AFDE43", "#C2EA63"], ["#D9DB4B", "#E8EA63"], ["#D99D36", "#EAB863"], ["#D97B41", "#EA9763"]]
     no_color = "transparent"
@@ -119,23 +128,23 @@ def make_pedigree(family_tree_dict, id):
         individuals_prev = individuals[-n_prev:]
         for person in individuals_prev:
             if person is not None:
-                parents = person.list_parents(family_tree_dict)
+                parents = family_tree.get_parents(person)
                 if len(parents) == 2:
                     individuals += parents
                     colors += base_colors[i]
-                    names += [parents[0].name_br, parents[1].name_br]
-                    links += [parents[0].id + ".html", parents[1].id + ".html"]
+                    names += [parents[0].newline_name, parents[1].newline_name]
+                    links += [parents[0].link, parents[1].link]
                 elif len(parents) == 1:
-                    if parents[0].gender == 'M':
+                    if parents[0].sex == 'M':
                         individuals += [parents[0], None]
                         colors += [base_colors[i][0], no_color]
-                        names += [parents[0].name_br, ""]
-                        links += [parents[0].id + ".html", ""]
+                        names += [parents[0].newline_name, ""]
+                        links += [parents[0].link, ""]
                     else:
                         individuals += [None, parents[0]]
                         colors += [no_color, base_colors[i][1]]
-                        names += ["", parents[0].name_br]
-                        links += ["", parents[0].id + ".html"]
+                        names += ["", parents[0].newline_name]
+                        links += ["", parents[0].link]
                 elif len(parents) == 0:
                     individuals += [None, None]
                     colors += [no_color, no_color]
@@ -147,66 +156,67 @@ def make_pedigree(family_tree_dict, id):
                 names += ["", ""]
                 links += ["", ""]
 
-
     fourth_gen = individuals[-16:]
 
     for i, indiv in enumerate(fourth_gen):
         if indiv is not None:
-            max_gen = count_max_ancestors(family_tree_dict, indiv.id)
+            max_gen = count_max_ancestors(family_tree, indiv.ref)
             names[-16+i] += f"\\n(+{max_gen})"
 
     return pedigree_html(names, links, colors)
 
 
-def generate_individual_page(family_tree_dict, id,
+def generate_individual_page(fam_tree, ref,
         title="My<br>genealogy", description="My genealogie"):
 
-    individual = family_tree_dict[id]
+    individual = fam_tree.individuals[ref]
 
     html_string = header(title, description)
     html_string += f"<h1>{individual.name}</h1>\n"
-    html_string += f"<h2>{individual.describe(family_tree_dict, False)}</h2>\n"
+    html_string += f"<h2>{describe_individual(fam_tree, ref, False)}</h2>\n"
     html_string += divider()
 
     html_string += "<h2>Voorouders</h2>\n"
-    html_string += make_pedigree(family_tree_dict, id)
+    html_string += make_pedigree(fam_tree, ref)
 
     html_string += "<h2>Kinderen</h2><ul>\n"
-    for fam in individual.list_children(family_tree_dict):
-        html_string += f"<li>{fam.describe(family_tree_dict)}</li>\n"
+    for fam in fam_tree.get_children(individual):
+        html_string += f"<li>{describe_individual(fam_tree, fam.ref, True)}</li>\n"
     html_string += "</ul>\n"
 
     html_string += "<h2>Ouders</h2><ul>\n"
-    for fam in individual.list_parents(family_tree_dict):
-        html_string += f"<li>{fam.describe(family_tree_dict)}</li>\n"
+    for fam in fam_tree.get_parents(individual):
+        html_string += f"<li>{describe_individual(fam_tree, fam.ref, True)}</li>\n"
     html_string += "</ul>\n"
 
     html_string += "<h2>Broers en zussen</h2><ul>\n"
-    for fam in individual.list_siblings(family_tree_dict):
-        html_string += f"<li>{fam.describe(family_tree_dict)}</li>\n"
+    for fam in fam_tree.get_siblings(individual):
+        html_string += f"<li>{describe_individual(fam_tree, fam.ref, True)}</li>\n"
     html_string += "</ul>\n"
 
     html_string += "<h2>Echtgenoten</h2><ul>\n"
-    for spouse, marriage in zip(individual.list_spouses(family_tree_dict), individual.marriages):
+    spouses, marriages = fam_tree.get_spouses(individual)
+    for spouse, marriage in zip(spouses, marriages):
         if individual.private:
-            html_string += f"<li>{spouse.describe(family_tree_dict)}</li>\n"
+            html_string += f"<li>{describe_individual(fam_tree, spouse.ref, True)}</li>\n"
         else:
-            html_string += f"<li>{spouse.describe(family_tree_dict)} {marriage}</li>\n"
+            html_string += f"<li>{describe_individual(fam_tree, spouse.ref, True)} {describe_marriage(marriage)}</li>\n"
     html_string += "</ul>\n"
 
     html_string += "<h2>Notities</h2>\n"
-    for note in individual.list_notes():
-        html_string += f"<p>{note}</p>\n"
+    if not individual.private:
+        for note in individual.notes:
+            html_string += f"<p>{note.replace('\n', '<br>')}</p>\n"
 
     html_string += footer()
     try:
         return indent(html_string)
     except XMLTokenError:
-        print(f"Indentation issue encountered for {id}.html")
+        print(f"Indentation issue encountered for {individual.link}")
         return html_string
 
 
-def add_name(name_dict, name, id):
+def add_name(name_dict, name, ref):
 
     if name == '':
         add_name = "UNKNOWN"
@@ -218,22 +228,22 @@ def add_name(name_dict, name, id):
         add_name = name
 
     if add_name not in name_dict.keys():
-        name_dict[add_name] = {'count': 1, 'ids': [id]}
+        name_dict[add_name] = {'count': 1, 'refs': [ref]}
     else:
         name_dict[add_name]['count'] += 1
-        name_dict[add_name]['ids'].append(id)
+        name_dict[add_name]['refs'].append(ref)
     
 
-def generate_name_index(family_tree_dict, title, description):
+def generate_name_index(fam_tree, title, description):
     html_string = header(title, description)
     html_string += "<h1>Namenindex</h1>\n"
     html_string += divider()
 
     last_names = dict()
-    for id, individual in family_tree_dict.items():
+    for ref, individual in fam_tree.individuals.items():
         if not individual.private:
             _, last_name = individual.short_name
-            add_name(last_names, last_name, id)
+            add_name(last_names, last_name, ref)
 
     last_names_sorted = list(last_names.keys())
     last_names_sorted.sort()
@@ -248,19 +258,19 @@ def generate_name_index(family_tree_dict, title, description):
         full_last_name_list += "<details>\n"
         full_last_name_list += f"<summary>{name} ({last_names[name]['count']})</summary>\n"
         full_last_name_list += "<p><ul>\n"
-        names_dict = {family_tree_dict[id].name: id for id in last_names[name]['ids']}
+        names_dict = {fam_tree.individuals[ref].name: ref for ref in last_names[name]['refs']}
         names_list = list(names_dict)
         names_list.sort()
         for name in names_list:
-            id = names_dict[name]
-            person = family_tree_dict[id]
+            ref = names_dict[name]
+            person = fam_tree.individuals[ref]
             if not person.private:
-                year = family_tree_dict[id].birth_year
+                year = fam_tree.individuals[ref].birth_year
             else:
                 year = 'UNKNOWN'
             if year is None:
                 year = 'UNKNOWN'
-            full_last_name_list += f"<li><a href='{id}.html'>{person.name}</a> ({year})</li>\n"
+            full_last_name_list += f"<li><a href='{person.link}'>{person.name}</a> ({year})</li>\n"
         full_last_name_list += "</ul></p>\n"
         full_last_name_list += "</details>\n"
 
@@ -272,3 +282,42 @@ def generate_name_index(family_tree_dict, title, description):
     html_string += f"\n{full_last_name_list}\n"
     html_string += footer()
     return indent(html_string)
+
+
+def generate(family_tree, id, output_dir="", title="", description="", filter_refs=None):
+
+    ref = f"@{id}@"
+
+    root_dir = os.path.dirname(os.path.dirname(__file__))
+    webfiles_dir = os.path.join(root_dir, 'webfiles')
+    webfiles = os.listdir(webfiles_dir)
+    for f in webfiles:
+        shutil.copy2(os.path.join(webfiles_dir, f), output_dir)
+
+    html_doc = generate_individual_page(family_tree, ref, title, description)
+    path_index = os.path.join(output_dir, "index.html")
+    with open(path_index, "w", encoding="utf-8") as file:
+        file.write(html_doc)
+
+    html_doc = generate_name_index(family_tree, title, description)
+    path_name_index = os.path.join(output_dir, "name_index.html")
+    with open(path_name_index, "w", encoding="utf-8") as file:
+        file.write(html_doc)
+
+    refs = list(family_tree.individuals.keys())
+    for ref in refs:
+        include = True
+        if filter_refs is not None:
+            i = family_tree.individuals[ref]
+            spouses, _ = family_tree.get_spouses(i)
+            family = family_tree.get_children(i) + spouses + family_tree.get_parents(i) + family_tree.get_siblings(i) + [i]
+            include = False
+            for f in family:
+                if f.ref in filter_refs:
+                    include = True
+        if include:
+            i = family_tree.individuals[ref]
+            html_doc = generate_individual_page(family_tree, ref, title, description)
+            path_individual = os.path.join(output_dir, i.link)
+            with open(path_individual, "w", encoding="utf-8") as file:
+                file.write(html_doc)
