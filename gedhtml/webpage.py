@@ -6,73 +6,76 @@ from yattag import indent
 from yattag.indentation import XMLTokenError
 
 from gedhtml.describe import describe_individual, describe_marriage
+from gedhtml.family_tree import FamilyTree
+from gedhtml.language import Language, Dutch
 
 
-def header(title, description):
-    return f"""
-<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="{description}">
-    <title>{title}</title>
-    <link rel="stylesheet" href="pure-min.css">
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
+def _header(title, description, language: Language=Dutch):
+    header_str = f"""
+        <!doctype html>
+        <html lang="en">
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <meta name="description" content="{description}">
+            <title>{title}</title>
+            <link rel="stylesheet" href="pure-min.css">
+            <link rel="stylesheet" href="style.css">
+        </head>
+        <body>
 
-<script src="chart.js"></script>
-<script src="chartjs-plugin-datalabels.js"></script>
-<script src="pedigree.js"></script>
-<script src="ui.js"></script>
+        <script src="chart.js"></script>
+        <script src="chartjs-plugin-datalabels.js"></script>
+        <script src="pedigree.js"></script>
+        <script src="ui.js"></script>
 
-<div id="layout">
+        <div id="layout">
 
-    <a href="#menu" id="menuLink" class="menu-link">
-        <span></span>
-    </a>
+            <a href="#menu" id="menuLink" class="menu-link">
+                <span></span>
+            </a>
 
-    <div id="menu">
-        <div class="pure-menu">
-            <a class="pure-menu-heading" href="index.html">{title}</a>
+            <div id="menu">
+                <div class="pure-menu">
+                    <a class="pure-menu-heading" href="index.html">{title}</a>
 
-            <ul class="pure-menu-list">
-                <li class="pure-menu-item"><a href="index.html" class="pure-menu-link">Startpagina</a></li>
-                <li class="pure-menu-item"><a href="name_index.html" class="pure-menu-link">Namenindex</a></li>
-                <li class="pure-menu-item"><a href="about.html" class="pure-menu-link">About</a></li>
-            </ul>
-        </div>
-    </div>
+                    <ul class="pure-menu-list">
+                        <li class="pure-menu-item"><a href="index.html" class="pure-menu-link">{language.link_text_start_page}</a></li>
+                        <li class="pure-menu-item"><a href="name_index.html" class="pure-menu-link">{language.link_text_name_index}</a></li>
+                        <li class="pure-menu-item"><a href="about.html" class="pure-menu-link">{language.link_text_about_page}</a></li>
+                    </ul>
+                </div>
+            </div>
 
-    <div id="main">
-        <div class="header">
+            <div id="main">
+                <div class="header">
 
-"""
+        """
+    return header_str
 
 
-def divider():
+def _divider():
     return """
-        </div>
+                </div>
 
-        <div class="content">
+                <div class="content">
 
-"""
+        """
 
 
-def footer():
+def _footer():
     return """
+                </div>
+            </div>
         </div>
-    </div>
-</div>
 
-</body>
-</html>
+        </body>
+        </html>
 
-"""
+        """
 
 
-def pedigree_html(fam_names, links, colors):
+def _pedigree_html(fam_names, links, colors):
     name_str = ""
     for fam_name in fam_names:
         name_str += f'"{fam_name}", '
@@ -93,7 +96,7 @@ def pedigree_html(fam_names, links, colors):
         )
 
 
-def count_max_ancestors(family_tree, ref):
+def _count_max_ancestors(family_tree, ref):
     
     queue = [family_tree.individuals[ref]]
     max_gen = 0
@@ -160,55 +163,57 @@ def make_pedigree(family_tree, ref):
 
     for i, indiv in enumerate(fourth_gen):
         if indiv is not None:
-            max_gen = count_max_ancestors(family_tree, indiv.ref)
+            max_gen = _count_max_ancestors(family_tree, indiv.ref)
             names[-16+i] += f"\\n(+{max_gen})"
 
-    return pedigree_html(names, links, colors)
+    return _pedigree_html(names, links, colors)
 
 
-def generate_individual_page(fam_tree, ref,
-        title="My<br>genealogy", description="My genealogie"):
+def generate_individual_page(fam_tree, ref, title="My genealogy",
+                             description="My genealogy",
+                             language: Language=Dutch):
 
     individual = fam_tree.individuals[ref]
 
-    html_string = header(title, description)
+    html_string = _header(title, description, language)
     html_string += f"<h1>{individual.name}</h1>\n"
-    html_string += f"<h2>{describe_individual(fam_tree, ref, False)}</h2>\n"
-    html_string += divider()
+    html_string += f"<h2>{describe_individual(fam_tree, ref, language, False)}</h2>\n"
+    html_string += _divider()
 
-    html_string += "<h2>Voorouders</h2>\n"
+    html_string += f"<h2>{language.header_pedigree}</h2>\n"
     html_string += make_pedigree(fam_tree, ref)
 
-    html_string += "<h2>Kinderen</h2><ul>\n"
+    html_string += f"<h2>{language.header_children}</h2><ul>\n"
     for fam in fam_tree.get_children(individual):
-        html_string += f"<li>{describe_individual(fam_tree, fam.ref, True)}</li>\n"
+        html_string += f"<li>{describe_individual(fam_tree, fam.ref, language, True)}</li>\n"
     html_string += "</ul>\n"
 
-    html_string += "<h2>Ouders</h2><ul>\n"
+    html_string += f"<h2>{language.header_parents}</h2><ul>\n"
     for fam in fam_tree.get_parents(individual):
-        html_string += f"<li>{describe_individual(fam_tree, fam.ref, True)}</li>\n"
+        html_string += f"<li>{describe_individual(fam_tree, fam.ref, language, True)}</li>\n"
     html_string += "</ul>\n"
 
-    html_string += "<h2>Broers en zussen</h2><ul>\n"
+    html_string += f"<h2>{language.header_siblings}</h2><ul>\n"
     for fam in fam_tree.get_siblings(individual):
-        html_string += f"<li>{describe_individual(fam_tree, fam.ref, True)}</li>\n"
+        html_string += f"<li>{describe_individual(fam_tree, fam.ref, language, True)}</li>\n"
     html_string += "</ul>\n"
 
-    html_string += "<h2>Echtgenoten</h2><ul>\n"
+    html_string += f"<h2>{language.header_spouses}</h2><ul>\n"
     spouses, marriages = fam_tree.get_spouses(individual)
     for spouse, marriage in zip(spouses, marriages):
         if individual.private:
-            html_string += f"<li>{describe_individual(fam_tree, spouse.ref, True)}</li>\n"
+            html_string += f"<li>{describe_individual(fam_tree, spouse.ref, language, True)}</li>\n"
         else:
-            html_string += f"<li>{describe_individual(fam_tree, spouse.ref, True)} {describe_marriage(marriage)}</li>\n"
+            html_string += f"<li>{describe_individual(fam_tree, spouse.ref, language, True)} "
+            html_string += f"{describe_marriage(marriage, language)}</li>\n"
     html_string += "</ul>\n"
 
-    html_string += "<h2>Notities</h2>\n"
+    html_string += f"<h2>{language.header_notes}</h2>\n"
     if not individual.private:
         for note in individual.notes:
             html_string += f"<p>{note.replace('\n', '<br>')}</p>\n"
 
-    html_string += footer()
+    html_string += _footer()
     try:
         return indent(html_string)
     except XMLTokenError:
@@ -216,10 +221,10 @@ def generate_individual_page(fam_tree, ref,
         return html_string
 
 
-def add_name(name_dict, name, ref):
+def _add_name(name_dict, name, ref, language: Language):
 
     if name == '':
-        add_name = "UNKNOWN"
+        add_name = language.date_unknown
     elif not name[0].isalpha():
         name_split = name.split(' ')
         if len(name_split) > 1:
@@ -234,16 +239,17 @@ def add_name(name_dict, name, ref):
         name_dict[add_name]['refs'].append(ref)
     
 
-def generate_name_index(fam_tree, title, description):
-    html_string = header(title, description)
-    html_string += "<h1>Namenindex</h1>\n"
-    html_string += divider()
+def generate_name_index(fam_tree: FamilyTree, title: str, description: str,
+                        language: Language=Dutch):
+    html_string = _header(title, description)
+    html_string += f"<h1>{language.header_name_index}</h1>\n"
+    html_string += _divider()
 
-    last_names = dict()
+    last_names: dict[str, dict] = dict()
     for ref, individual in fam_tree.individuals.items():
         if not individual.private:
             _, last_name = individual.short_name
-            add_name(last_names, last_name, ref)
+            _add_name(last_names, last_name, ref, language)
 
     last_names_sorted = list(last_names.keys())
     last_names_sorted.sort()
@@ -267,9 +273,9 @@ def generate_name_index(fam_tree, title, description):
             if not person.private:
                 year = fam_tree.individuals[ref].birth_year
             else:
-                year = 'UNKNOWN'
+                year = language.date_unknown
             if year is None:
-                year = 'UNKNOWN'
+                year = language.date_unknown
             full_last_name_list += f"<li><a href='{person.link}'>{person.name}</a> ({year})</li>\n"
         full_last_name_list += "</ul></p>\n"
         full_last_name_list += "</details>\n"
@@ -280,11 +286,12 @@ def generate_name_index(fam_tree, title, description):
     html_string += "</center></p>\n"
 
     html_string += f"\n{full_last_name_list}\n"
-    html_string += footer()
+    html_string += _footer()
     return indent(html_string)
 
 
-def generate(family_tree, id, output_dir="", title="", description="", filter_refs=None):
+def generate(family_tree: FamilyTree, id: str, output_dir: str="", title: str="", description: str="",
+             language: Language=Dutch, filter_refs: list[str] | None=None):
 
     ref = f"@{id}@"
 
@@ -294,15 +301,17 @@ def generate(family_tree, id, output_dir="", title="", description="", filter_re
     for f in webfiles:
         shutil.copy2(os.path.join(webfiles_dir, f), output_dir)
 
-    html_doc = generate_individual_page(family_tree, ref, title, description)
+    html_doc = generate_individual_page(family_tree, ref, title, description, language)
     path_index = os.path.join(output_dir, "index.html")
     with open(path_index, "w", encoding="utf-8") as file:
         file.write(html_doc)
 
-    html_doc = generate_name_index(family_tree, title, description)
+    html_doc = generate_name_index(family_tree, title, description, language)
     path_name_index = os.path.join(output_dir, "name_index.html")
     with open(path_name_index, "w", encoding="utf-8") as file:
         file.write(html_doc)
+
+    # TODO: add "about page" generation.
 
     refs = list(family_tree.individuals.keys())
     for ref in refs:
@@ -310,14 +319,17 @@ def generate(family_tree, id, output_dir="", title="", description="", filter_re
         if filter_refs is not None:
             i = family_tree.individuals[ref]
             spouses, _ = family_tree.get_spouses(i)
-            family = family_tree.get_children(i) + spouses + family_tree.get_parents(i) + family_tree.get_siblings(i) + [i]
+            children = family_tree.get_children(i)
+            parents = family_tree.get_parents(i)
+            siblings = family_tree.get_siblings(i)
+            family = children + spouses + parents + siblings + [i]
             include = False
-            for f in family:
-                if f.ref in filter_refs:
+            for fam in family:
+                if fam.ref in filter_refs:
                     include = True
         if include:
             i = family_tree.individuals[ref]
-            html_doc = generate_individual_page(family_tree, ref, title, description)
+            html_doc = generate_individual_page(family_tree, ref, title, description, language)
             path_individual = os.path.join(output_dir, i.link)
             with open(path_individual, "w", encoding="utf-8") as file:
                 file.write(html_doc)

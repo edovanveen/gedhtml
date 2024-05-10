@@ -9,6 +9,7 @@ body {
 #pedigree {
     max-height: 500px;
     max-width: 800px;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .pure-img-responsive {

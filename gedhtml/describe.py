@@ -1,27 +1,54 @@
 from gedhtml.family_tree import FamilyTree, Family
+from gedhtml.language import Language, Dutch
 
 
-def _describe_date_place(prefix, date, place, suffix=""):
+def _parse_date(date: str, language: Language) -> str:
+    date_parsed = date[:]
+    for key, value in language.date_mapping.items():
+        if key in date:
+            date_parsed = date_parsed.replace(key, value)
+    return date_parsed
+
+
+def _describe_date(date: str, language: Language) -> str:
+    if date == "":
+        return ""
+    date_translated = _parse_date(date, language)
+    if date_translated[0].isalpha():
+        return date_translated
+    elif len(date_translated.split(' ')) > 1:
+        return f"{language.prepositions['on']} {date_translated}"
+    else:
+        return f"{language.prepositions['in']} {date_translated}"
+
+
+def _describe_place(place: str, language: Language) -> str:
+    if place == "":
+        return ""
+    return f"{language.prepositions['at']} {place}"
+
+
+def _describe_date_and_place(date: str, place: str, language: Language,
+                             prefix: str="", suffix: str=""):
     if date == "" and place == "":
         return ""
-    description = prefix
+
+    description = ""
     if date != "":
-        if date[0].isalpha():
-            description += f" {date}"
-        elif len(date.split(' ')) > 1:
-            description += f" op {date}"
-        else:
-            description += f" in {date}"
+        description += f" {_describe_date(date, language)}"
     if place != "":
-        description += f" te {place}"
-    return description + suffix
+        description += f" {_describe_place(place, language)}"
+
+    return prefix + description + suffix
 
 
-def describe_marriage(fam: Family):
-    return _describe_date_place("Getrouwd", fam.marriage_date, fam.marriage_place, ".")
+def describe_marriage(fam: Family, language: Language):
+    return _describe_date_and_place(fam.marriage_date, fam.marriage_place,
+        language, language.participles["Married"], ".")
 
 
-def describe_individual(family_tree: FamilyTree, ref: str, add_link: bool=True):
+def describe_individual(family_tree: FamilyTree, ref: str,
+                        language: Language=Dutch, add_link: bool=True):
 
     individual = family_tree.individuals[ref]
     
@@ -39,9 +66,13 @@ def describe_individual(family_tree: FamilyTree, ref: str, add_link: bool=True):
         return display_name
     
     # Add a lot more info if not private individual.
-    birth_info = _describe_date_place(", geboren", individual.birth_date, individual.birth_place)
-    baptism_info = _describe_date_place(", gedoopt", individual.baptism_date, individual.baptism_place)
-    death_info = _describe_date_place(", gestorven", individual.death_date, individual.death_place)
-    burial_info = _describe_date_place(", begraven", individual.burial_date, individual.burial_place)
+    birth_info = _describe_date_and_place(individual.birth_date, individual.birth_place,
+                                          language, f", {language.participles["born"]}")
+    baptism_info = _describe_date_and_place(individual.baptism_date, individual.baptism_place,
+                                            language, f", {language.participles["baptised"]}")
+    death_info = _describe_date_and_place(individual.death_date, individual.death_place,
+                                          language, f", {language.participles["died"]}")
+    burial_info = _describe_date_and_place(individual.burial_date, individual.burial_place,
+                                           language, f", {language.participles["buried"]}")
 
     return(f"{display_name} ({individual.sex}){birth_info}{baptism_info}{death_info}{burial_info}.")
