@@ -3,9 +3,9 @@ from gedhtml.utils import concat
 
 def _template(fam_names, links, colors):
 
-    name_str = concat([f'"{f}"' for f in fam_names])
-    link_str = concat([f'"{a}"' for a in links])
-    color_str = concat([f'"{c}"' for c in colors])
+    name_str = concat([f'"{f}"' for f in fam_names], ', ')
+    link_str = concat([f'"{a}"' for a in links], ', ')
+    color_str = concat([f'"{c}"' for c in colors], ', ')
 
     return (
         '          <canvas id="pedigree"></canvas>\n'

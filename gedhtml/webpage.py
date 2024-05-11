@@ -171,7 +171,7 @@ def generate_name_index(fam_tree: FamilyTree, title: str, description: str,
                         concat([
                             html.li(html.a(i.name, href=i.link).rstrip() +
                                     f" ({dunk if i.birth_year is None else i.birth_year})")
-                            for i in individuals], "")
+                            for i in individuals])
                     )
                 )
             )
