@@ -124,7 +124,7 @@ class FamilyTree:
                 children.append(self.individuals[child_ref])
         return children
 
-    def get_parents(self, individual: Individual) -> list[Individual | None]:
+    def get_parents(self, individual: Individual) -> list[Individual]:
         parents = []
         for ref in individual.fam_child_refs:
             family = self.families[ref]

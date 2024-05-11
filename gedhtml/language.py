@@ -16,6 +16,10 @@ class Language(Protocol):
     header_notes: str
 
     date_unknown: str
+    person_unknown: str
+
+    default_content_about = str
+
     date_mapping: dict
 
     prepositions: dict
@@ -38,6 +42,10 @@ class Dutch:
     header_name_index = "Namenindex"
     
     date_unknown = "onbekend"
+    person_unknown = "onbekend"
+
+    default_content_about = "Nou gewoon, voor de leuk."
+
     date_mapping = {
         'ABOUT': 'ongeveer',
         'BEFORE': 'vóór',
@@ -88,6 +96,10 @@ class English:
     header_name_index = "Name index"
 
     date_unknown = "unknown"
+    person_unknown = "unknown"
+
+    default_content_about = "Now ordinary, for the nice."
+
     date_mapping = {
         'ABOUT': 'about',
         'BEFORE': 'before',
@@ -129,4 +141,5 @@ def choose(lang: str="NL") -> Language:
     elif lang == "EN":
         return English
     else:
-        raise ValueError("Language support only for Dutch ('NL') and English ('EN').")
+        raise ValueError("Language support only for Dutch ('NL') "
+                         "and (steenkolen-) English ('EN').")

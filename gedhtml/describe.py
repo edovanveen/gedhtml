@@ -42,13 +42,13 @@ def _describe_date_and_place(date: str, place: str, language: Language,
     return prefix + description + suffix
 
 
-def describe_marriage(fam: Family, language: Language):
+def marriage_text(fam: Family, language: Language):
     return _describe_date_and_place(fam.marriage_date, fam.marriage_place,
         language, language.participles["Married"], ".")
 
 
-def describe_individual(family_tree: FamilyTree, ref: str,
-                        language: Language=Dutch, add_link: bool=True):
+def individual_text(family_tree: FamilyTree, ref: str,
+                    language: Language=Dutch, add_link: bool=True):
 
     individual = family_tree.individuals[ref]
     
