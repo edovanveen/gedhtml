@@ -18,7 +18,7 @@ class Language(Protocol):
     date_unknown: str
     person_unknown: str
 
-    default_content_about = str
+    default_content_about: str
 
     date_mapping: dict
 

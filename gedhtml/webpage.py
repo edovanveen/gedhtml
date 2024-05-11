@@ -55,7 +55,7 @@ class _NameCounter:
             # Skip private individuals.
             if individual.private:
                 continue
-            _, last_name = individual.short_name
+            last_name = individual.first_last_name
 
             # Do some filtering on last name.
             if last_name == '':

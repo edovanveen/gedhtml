@@ -2,11 +2,10 @@ from dataclasses import dataclass
 
 
 def _truncate_names(names):
-    if len(names) > 1:
-        for name in names[1:]:
-            if len(name) > 0:
-                if name[0].isalpha() and name[-1].isalpha():
-                    yield name
+    for name in names:
+        if len(name) > 0:
+            if name[0].isalpha() and name[-1].isalpha():
+                yield name
 
 
 @dataclass 
@@ -17,6 +16,7 @@ class Individual:
     fam_spouse_refs: list[str]
     sex: str = "U"
     first_name: str = ""
+    last_name_prefix: str = ""
     last_name: str = ""
     birth_date: str = ""
     birth_place: str = ""
@@ -64,7 +64,10 @@ class Individual:
 
     @property
     def full_name(self) -> str:
-        return f"{self.first_name} {self.last_name}"
+        if self.last_name_prefix == "":
+            return f"{self.first_name} {self.last_name}"
+        else:
+            return f"{self.first_name} {self.last_name_prefix} {self.last_name}"
     
     @property
     def newline_name(self) -> str:
@@ -76,15 +79,25 @@ class Individual:
 
     @property
     def short_name(self) -> tuple[str, str]:
+
         first_names = self.first_name.split(' ')
         short_first_name = first_names[0]
-        for name in _truncate_names(first_names):
+        for name in _truncate_names(first_names[1:]):
             short_first_name += f" {name[0]}."
+
+        short_last_name = ""
+        for prefix in _truncate_names(self.last_name_prefix.split(' ')):
+            short_last_name += f"{prefix[0]}. "
         last_names = self.last_name.split(' ')
-        short_last_name = last_names[0]
-        for name in _truncate_names(last_names):
+        short_last_name += last_names[0]
+        for name in _truncate_names(last_names[1:]):
             short_last_name += f" {name}"
+
         return short_first_name, short_last_name
+    
+    @property
+    def first_last_name(self):
+        return self.last_name.split(' ')[0]
 
     @property
     def initial(self) -> str:
