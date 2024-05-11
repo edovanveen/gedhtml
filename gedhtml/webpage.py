@@ -1,297 +1,204 @@
 import os
 import os.path
 import shutil
+from typing import Callable
 
 from yattag import indent
 from yattag.indentation import XMLTokenError
 
-from gedhtml.describe import describe_individual, describe_marriage
+from gedhtml.describe import individual_text, marriage_text
 from gedhtml.family_tree import FamilyTree
 from gedhtml.language import Language, Dutch
+import gedhtml.html_template as template
+import gedhtml.pedigree as pedigree
+from gedhtml.utils import concat
 
 
-def _header(title, description, language: Language=Dutch):
-    header_str = f"""
-        <!doctype html>
-        <html lang="en">
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <meta name="description" content="{description}">
-            <title>{title}</title>
-            <link rel="stylesheet" href="pure-min.css">
-            <link rel="stylesheet" href="style.css">
-        </head>
-        <body>
-
-        <script src="chart.js"></script>
-        <script src="chartjs-plugin-datalabels.js"></script>
-        <script src="pedigree.js"></script>
-        <script src="ui.js"></script>
-
-        <div id="layout">
-
-            <a href="#menu" id="menuLink" class="menu-link">
-                <span></span>
-            </a>
-
-            <div id="menu">
-                <div class="pure-menu">
-                    <a class="pure-menu-heading" href="index.html">{title}</a>
-
-                    <ul class="pure-menu-list">
-                        <li class="pure-menu-item"><a href="index.html" class="pure-menu-link">{language.link_text_start_page}</a></li>
-                        <li class="pure-menu-item"><a href="name_index.html" class="pure-menu-link">{language.link_text_name_index}</a></li>
-                        <li class="pure-menu-item"><a href="about.html" class="pure-menu-link">{language.link_text_about_page}</a></li>
-                    </ul>
-                </div>
-            </div>
-
-            <div id="main">
-                <div class="header">
-
-        """
-    return header_str
-
-
-def _divider():
-    return """
-                </div>
-
-                <div class="content">
-
-        """
-
-
-def _footer():
-    return """
-                </div>
-            </div>
-        </div>
-
-        </body>
-        </html>
-
-        """
-
-
-def _pedigree_html(fam_names, links, colors):
-    name_str = ""
-    for fam_name in fam_names:
-        name_str += f'"{fam_name}", '
-    link_str = ""
-    for link in links:
-        link_str += f'"{link}", '
-    color_str = ""
-    for color in colors:
-        color_str += f'"{color}", '
-    return (
-        '          <canvas id="pedigree"></canvas>\n'
-        '          <script>\n'
-       f'            const names = [{name_str[:-2]}];\n'
-       f'            const links = [{link_str[:-2]}];\n'
-       f'            const colors = [{color_str[:-2]}];\n'
-       f'            drawChart("pedigree", names, links, colors);\n'
-        '          </script>\n'
-        )
-
-
-def _count_max_ancestors(family_tree, ref):
+class _HtmlTagger:
+    """Wrap a string argument with an html tag, given by any method name.
+    Keywords will be turned into html tag attributes; if you want to use the
+    keyword 'class', use 'klass' instead, because the former is a reserved
+    word in Python.
     
-    queue = [family_tree.individuals[ref]]
-    max_gen = 0
-    while len(queue) > 0:
-        queue_parents = []
-        for indiv in queue:
-            parents = family_tree.get_parents(indiv)
-            for parent in parents:
-                if parent is not None:
-                    queue_parents.append(parent)
-        if len(queue_parents) > 0:
-            max_gen += 1
-            queue = queue_parents[:]
-        else:
-            queue = []
-    return max_gen
+    >>> html = _HtmlTagger()
+    >>> html.a('link text', klass='my-class', href='https://www.python.org')
+    \"<a class='my-class' href='https://www.python.org'>link text</a>\\n\"
+    """
+    def __getattr__(self, tag: str) -> Callable:
+        def wrapper(content: str, **kwargs: str) -> str:
+            attribute_text = ""
+            for key, value in kwargs.items():
+                attribute_text += f" {"class" if key == "klass" else key}='{value}'"
+            return f"<{tag}{attribute_text}>{content}</{tag}>\n"
+        return wrapper
 
 
-def make_pedigree(family_tree, ref):
+class _NameCounter:
+    """Group individuals in a family tree by initial and last name."""
+    
+    def __init__(self, family_tree: FamilyTree, unknown_str="unknown"):
+        self.family_tree = family_tree
+        self.unknown_str = unknown_str
 
-    individual = family_tree.individuals[ref]
+        # Main data structure in this class.
+        # key: initial
+        # value: dict with:
+        #     key: last name
+        #     value: list of individuals, sorted by full name
+        self._data = self._group_names()
 
-    base_colors = [["#AFDE43", "#C2EA63"], ["#D9DB4B", "#E8EA63"], ["#D99D36", "#EAB863"], ["#D97B41", "#EA9763"]]
-    no_color = "transparent"
-    individuals = [individual]
-    names = []
-    links = []
-    colors = []
+    def _group_names(self):
 
-    for i in range(4):
-        n_prev = 2**i
-        individuals_prev = individuals[-n_prev:]
-        for person in individuals_prev:
-            if person is not None:
-                parents = family_tree.get_parents(person)
-                if len(parents) == 2:
-                    individuals += parents
-                    colors += base_colors[i]
-                    names += [parents[0].newline_name, parents[1].newline_name]
-                    links += [parents[0].link, parents[1].link]
-                elif len(parents) == 1:
-                    if parents[0].sex == 'M':
-                        individuals += [parents[0], None]
-                        colors += [base_colors[i][0], no_color]
-                        names += [parents[0].newline_name, ""]
-                        links += [parents[0].link, ""]
-                    else:
-                        individuals += [None, parents[0]]
-                        colors += [no_color, base_colors[i][1]]
-                        names += ["", parents[0].newline_name]
-                        links += ["", parents[0].link]
-                elif len(parents) == 0:
-                    individuals += [None, None]
-                    colors += [no_color, no_color]
-                    names += ["", ""]
-                    links += ["", ""]
+        data = dict()
+        for individual in self.family_tree.individuals.values():
+
+            # Skip private individuals.
+            if individual.private:
+                continue
+            last_name = individual.first_last_name
+
+            # Do some filtering on last name.
+            if last_name == '':
+                add_name = self.unknown_str
+            elif not last_name[0].isalpha():
+                name_split = last_name.split(' ')
+                if len(name_split) > 1:
+                    add_name = name_split[1]
             else:
-                individuals += [None, None]
-                colors += [no_color, no_color]
-                names += ["", ""]
-                links += ["", ""]
+                add_name = last_name
+            initial = add_name[0]
 
-    fourth_gen = individuals[-16:]
+            # Add to data structure.
+            if initial not in data.keys():
+                data[initial] = dict()
 
-    for i, indiv in enumerate(fourth_gen):
-        if indiv is not None:
-            max_gen = _count_max_ancestors(family_tree, indiv.ref)
-            names[-16+i] += f"\\n(+{max_gen})"
+            if add_name not in data[initial].keys():
+                data[initial][add_name] = [individual]
+            else:
+                data[initial][add_name].append(individual)
 
-    return _pedigree_html(names, links, colors)
+        # Data is complete but needs to be sorted.
+        data = dict(sorted(data.items()))  # Sort initials
+        for initial in data.keys():
+            data[initial] = dict(sorted(data[initial].items()))  # Sort last names.
+            for last_name in data[initial].keys():
+                data[initial][last_name].sort(key=lambda x: x.name)  # Sort first names.
+
+        return data
+
+    def items(self):
+        for initial, name_dict in self._data.items():
+            yield initial, name_dict
+
+    def initials(self):
+        return self._data.keys()
 
 
-def generate_individual_page(fam_tree, ref, title="My genealogy",
-                             description="My genealogy",
-                             language: Language=Dutch):
+def generate_individual_page(fam_tree: FamilyTree, ref: str,
+                             title="My genealogy", description="My genealogy",
+                             lang: Language=Dutch):
 
     individual = fam_tree.individuals[ref]
+    html = _HtmlTagger()
 
-    html_string = _header(title, description, language)
-    html_string += f"<h1>{individual.name}</h1>\n"
-    html_string += f"<h2>{describe_individual(fam_tree, ref, language, False)}</h2>\n"
-    html_string += _divider()
+    header = html.h1(individual.name)
+    header += html.h2(individual_text(fam_tree, ref, lang, False))
 
-    html_string += f"<h2>{language.header_pedigree}</h2>\n"
-    html_string += make_pedigree(fam_tree, ref)
+    content = html.h2(lang.header_pedigree)
+    content += pedigree.make_plot(fam_tree, ref)
 
-    html_string += f"<h2>{language.header_children}</h2><ul>\n"
-    for fam in fam_tree.get_children(individual):
-        html_string += f"<li>{describe_individual(fam_tree, fam.ref, language, True)}</li>\n"
-    html_string += "</ul>\n"
+    content += html.h2(lang.header_children)
+    content += html.ul(concat([html.li(individual_text(fam_tree, f.ref, lang))
+                                     for f in fam_tree.get_children(individual)]))
 
-    html_string += f"<h2>{language.header_parents}</h2><ul>\n"
-    for fam in fam_tree.get_parents(individual):
-        html_string += f"<li>{describe_individual(fam_tree, fam.ref, language, True)}</li>\n"
-    html_string += "</ul>\n"
+    content += html.h2(lang.header_parents)
+    content += html.ul(concat([html.li(individual_text(fam_tree, f.ref, lang))
+                                     for f in fam_tree.get_parents(individual)]))
 
-    html_string += f"<h2>{language.header_siblings}</h2><ul>\n"
-    for fam in fam_tree.get_siblings(individual):
-        html_string += f"<li>{describe_individual(fam_tree, fam.ref, language, True)}</li>\n"
-    html_string += "</ul>\n"
+    content += html.h2(lang.header_siblings)
+    content += html.ul(concat([html.li(individual_text(fam_tree, f.ref, lang))
+                                     for f in fam_tree.get_siblings(individual)]))
 
-    html_string += f"<h2>{language.header_spouses}</h2><ul>\n"
+    content += html.h2(lang.header_spouses)
     spouses, marriages = fam_tree.get_spouses(individual)
-    for spouse, marriage in zip(spouses, marriages):
-        if individual.private:
-            html_string += f"<li>{describe_individual(fam_tree, spouse.ref, language, True)}</li>\n"
-        else:
-            html_string += f"<li>{describe_individual(fam_tree, spouse.ref, language, True)} "
-            html_string += f"{describe_marriage(marriage, language)}</li>\n"
-    html_string += "</ul>\n"
+    if individual.private:
+        content += html.ul(concat([html.li(individual_text(fam_tree, f.ref, lang))
+                                         for f in spouses]))
+    else:
+        content += html.ul(concat([html.li(individual_text(fam_tree, f.ref, lang)
+                                                 + " " + marriage_text(m, lang))
+                                         for f, m in zip(spouses, marriages)]))
 
-    html_string += f"<h2>{language.header_notes}</h2>\n"
+    content += html.h2(lang.header_notes)
     if not individual.private:
-        for note in individual.notes:
-            html_string += f"<p>{note.replace('\n', '<br>')}</p>\n"
+        content += html.p(concat([note.replace('\n', '<br>')
+                                        for note in individual.notes]))
 
-    html_string += _footer()
+    menu = template.menu(lang.link_text_start_page,
+                         lang.link_text_name_index,
+                         lang.link_text_about_page)
+    html_page = template.main(title, description, menu, header, content)
+
     try:
-        return indent(html_string)
+        return indent(html_page)
     except XMLTokenError:
         print(f"Indentation issue encountered for {individual.link}")
-        return html_string
-
-
-def _add_name(name_dict, name, ref, language: Language):
-
-    if name == '':
-        add_name = language.date_unknown
-    elif not name[0].isalpha():
-        name_split = name.split(' ')
-        if len(name_split) > 1:
-            add_name = name_split[1]
-    else:
-        add_name = name
-
-    if add_name not in name_dict.keys():
-        name_dict[add_name] = {'count': 1, 'refs': [ref]}
-    else:
-        name_dict[add_name]['count'] += 1
-        name_dict[add_name]['refs'].append(ref)
+        return html_page
     
 
 def generate_name_index(fam_tree: FamilyTree, title: str, description: str,
                         language: Language=Dutch):
-    html_string = _header(title, description)
-    html_string += f"<h1>{language.header_name_index}</h1>\n"
-    html_string += _divider()
+    html = _HtmlTagger()
+    name_counter = _NameCounter(fam_tree, language.person_unknown)
 
-    last_names: dict[str, dict] = dict()
-    for ref, individual in fam_tree.individuals.items():
-        if not individual.private:
-            _, last_name = individual.short_name
-            _add_name(last_names, last_name, ref, language)
+    # Generate html for index at top of page.
+    header = html.h1(language.header_name_index)
+    initials = name_counter.initials()
+    content = html.p(
+        html.center(
+            concat([html.a(init, href=f"#{init}").rstrip() for init in initials], " - ")
+        ))
 
-    last_names_sorted = list(last_names.keys())
-    last_names_sorted.sort()
-    full_last_name_list = ""
-    initial_list = []
-    initial = ""
-    for name in last_names_sorted:
-        if name[0] != initial:
-            initial = name[0]
-            initial_list.append(initial)
-            full_last_name_list += f"<h2 id='{initial}'>{initial}</h2>\n"
-        full_last_name_list += "<details>\n"
-        full_last_name_list += f"<summary>{name} ({last_names[name]['count']})</summary>\n"
-        full_last_name_list += "<p><ul>\n"
-        names_dict = {fam_tree.individuals[ref].name: ref for ref in last_names[name]['refs']}
-        names_list = list(names_dict)
-        names_list.sort()
-        for name in names_list:
-            ref = names_dict[name]
-            person = fam_tree.individuals[ref]
-            if not person.private:
-                year = fam_tree.individuals[ref].birth_year
-            else:
-                year = language.date_unknown
-            if year is None:
-                year = language.date_unknown
-            full_last_name_list += f"<li><a href='{person.link}'>{person.name}</a> ({year})</li>\n"
-        full_last_name_list += "</ul></p>\n"
-        full_last_name_list += "</details>\n"
+    # Generate html for full list of names.
+    dunk = language.date_unknown  # Mike, I'm open! Never mind.
+    for initial, last_names in name_counter.items():
+        content += html.h2(initial, id=f"{initial}")
+        for last_name, individuals in last_names.items():
+            content += html.details(
+                html.summary(f"{last_name} ({len(individuals)})") +
+                html.p(
+                    html.ul(
+                        concat([
+                            html.li(html.a(i.name, href=i.link).rstrip() +
+                                    f" ({dunk if i.birth_year is None else i.birth_year})")
+                            for i in individuals], "")
+                    )
+                )
+            )
+    
+    menu = template.menu(language.link_text_start_page,
+                         language.link_text_name_index,
+                         language.link_text_about_page)
+    html_page = template.main(title, description, menu, header, content)
 
-    html_string += "<p><center>- "
-    for initial in initial_list:
-        html_string += f"<a href='#{initial}'>{initial}</a> - "
-    html_string += "</center></p>\n"
+    return indent(html_page)
+    
 
-    html_string += f"\n{full_last_name_list}\n"
-    html_string += _footer()
-    return indent(html_string)
+def generate_about_page_placeholder(title: str, description: str,
+                                    language: Language=Dutch):
+    html = _HtmlTagger()
+    header = html.h1(language.link_text_about_page)
+    content = html.p(language.default_content_about)
+    menu = template.menu(language.link_text_start_page,
+                         language.link_text_name_index,
+                         language.link_text_about_page)
+    html_page = template.main(title, description, menu, header, content)
+    return indent(html_page)
 
 
-def generate(family_tree: FamilyTree, id: str, output_dir: str="", title: str="", description: str="",
-             language: Language=Dutch, filter_refs: list[str] | None=None):
+def generate(family_tree: FamilyTree, id: str, output_dir: str="", title: str="",
+             description: str="", language: Language=Dutch,
+             filter_refs: list[str] | None=None):
 
     ref = f"@{id}@"
 
@@ -311,7 +218,10 @@ def generate(family_tree: FamilyTree, id: str, output_dir: str="", title: str=""
     with open(path_name_index, "w", encoding="utf-8") as file:
         file.write(html_doc)
 
-    # TODO: add "about page" generation.
+    html_doc = generate_about_page_placeholder(title, description, language)
+    path_name_index = os.path.join(output_dir, "about.html")
+    with open(path_name_index, "w", encoding="utf-8") as file:
+        file.write(html_doc)
 
     refs = list(family_tree.individuals.keys())
     for ref in refs:

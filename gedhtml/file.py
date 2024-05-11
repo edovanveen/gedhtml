@@ -8,6 +8,7 @@ from gedhtml.family_tree import FamilyTree, Individual, Family
 class IndiRecord(Enum):
     SEX = "sex"
     NAMEGIVN = "first_name"
+    NAMESPFX = "last_name_prefix"
     NAMESURN = "last_name"
     BIRTDATE = "birth_date"
     BIRTPLAC = "birth_place"
