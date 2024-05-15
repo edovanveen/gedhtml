@@ -201,7 +201,10 @@ def generate(family_tree: FamilyTree, id: str, output_dir: str="", title: str=""
              filter_ids: list[str] | None=None):
 
     ref = f"@{id}@"
-    filter_refs = [f"@{id}@" for id in filter_ids]
+    if filter_ids is None:
+        filter_refs = None
+    else:
+        filter_refs = [f"@{id}@" for id in filter_ids]
 
     root_dir = os.path.dirname(os.path.dirname(__file__))
     webfiles_dir = os.path.join(root_dir, 'webfiles')
