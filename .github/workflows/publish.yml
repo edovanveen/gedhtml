@@ -33,11 +33,3 @@ jobs:
       - name: publish
         run: |
           poetry publish -u __token__ -p ${{ secrets.PYPI_TOKEN }}
-  publish-fail:
-    runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
-    steps:
-      - name: Throw error
-        run: |
-          echo Could not publish because testing/linting job failed.
-          exit 1
