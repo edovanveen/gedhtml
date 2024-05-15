@@ -198,9 +198,10 @@ def generate_about_page_placeholder(title: str, description: str,
 
 def generate(family_tree: FamilyTree, id: str, output_dir: str="", title: str="",
              description: str="", language: Language=Dutch,
-             filter_refs: list[str] | None=None):
+             filter_ids: list[str] | None=None):
 
     ref = f"@{id}@"
+    filter_refs = [f"@{id}@" for id in filter_ids]
 
     root_dir = os.path.dirname(os.path.dirname(__file__))
     webfiles_dir = os.path.join(root_dir, 'webfiles')
@@ -230,9 +231,15 @@ def generate(family_tree: FamilyTree, id: str, output_dir: str="", title: str=""
             i = family_tree.individuals[ref]
             spouses, _ = family_tree.get_spouses(i)
             children = family_tree.get_children(i)
-            parents = family_tree.get_parents(i)
+            ancestors = [[] for _ in range(4)]  # We want ancestors going back 4 generations,
+                                                # because that's how deep the pedigree chart goes.
+            ancestors[0] = family_tree.get_parents(i)
+            for p in range(1, 4):
+                for kid in ancestors[p-1]:
+                    ancestors[p] += family_tree.get_parents(kid)
             siblings = family_tree.get_siblings(i)
-            family = children + spouses + parents + siblings + [i]
+            family = [i] + children + spouses + siblings + \
+                     ancestors[0] + ancestors[1] + ancestors[2] + ancestors[3]
             include = False
             for fam in family:
                 if fam.ref in filter_refs:
