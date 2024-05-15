@@ -7,7 +7,7 @@ from yattag import indent
 from yattag.indentation import XMLTokenError
 
 from gedhtml.describe import individual_text, marriage_text
-from gedhtml.family_tree import FamilyTree
+from gedhtml.family_tree import FamilyTree, Individual
 from gedhtml.language import Language, Dutch
 import gedhtml.html_template as template
 import gedhtml.pedigree as pedigree
@@ -231,16 +231,21 @@ def generate(family_tree: FamilyTree, id: str, output_dir: str="", title: str=""
     for ref in refs:
         include = True
         if filter_refs is not None:
+
             i = family_tree.individuals[ref]
+
             spouses, _ = family_tree.get_spouses(i)
             children = family_tree.get_children(i)
-            ancestors = [[] for _ in range(4)]  # We want ancestors going back 4 generations,
-                                                # because that's how deep the pedigree chart goes.
+            siblings = family_tree.get_siblings(i)
+
+            # We want ancestors going back 4 generations,
+            # because that's how deep the pedigree chart goes.
+            ancestors: list[list[Individual]] = [[] for _ in range(4)]
             ancestors[0] = family_tree.get_parents(i)
             for p in range(1, 4):
                 for kid in ancestors[p-1]:
                     ancestors[p] += family_tree.get_parents(kid)
-            siblings = family_tree.get_siblings(i)
+
             family = [i] + children + spouses + siblings + \
                      ancestors[0] + ancestors[1] + ancestors[2] + ancestors[3]
             include = False

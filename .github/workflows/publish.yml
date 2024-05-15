@@ -1,0 +1,14 @@
+name: publish
+run-name: ${{ github.actor }} is publishing a new version with GitHub Actions 🚀
+on:
+  push:
+    branches:
+      - main
+permissions:
+  contents: write
+jobs:
+  publish-code:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo Push to main!
