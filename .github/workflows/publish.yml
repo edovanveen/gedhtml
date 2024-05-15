@@ -1,6 +1,10 @@
 name: publish
 run-name: ${{ github.actor }} is publishing a new version with GitHub Actions 🚀
 on:
+  workflow_run:
+    workflows: [linting and testing]
+    types: 
+      - completed
   push:
     tags:
       - v**
@@ -10,6 +14,7 @@ permissions:
 jobs:
   publish-code:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: get latest code
         uses: actions/checkout@v3

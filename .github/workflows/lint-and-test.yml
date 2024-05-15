@@ -1,5 +1,5 @@
-name: linting & testing
-run-name: ${{ github.actor }} is running linting and testing on GitHub Actions 🚀
+name: linting and testing
+run-name: ${{ github.actor }} is running linting and testing on GitHub Actions
 on: [push]
 permissions:
   contents: write
