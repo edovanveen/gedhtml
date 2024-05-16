@@ -3,10 +3,18 @@ name = "gedhtml"
 version = "0.0.0"
 description = "Converting GED files to static web pages."
 authors = ["Edo van Veen <edo@vanveen.io>"]
+readme = "README.md"
+homepage = "https://github.com/edovanveen/gedhtml"
+repository = "https://github.com/edovanveen/gedhtml"
+keywords = ["genealogy", "GED", "GEDCOM", "website", "HTML"]
+license = "MIT"
+classifiers = [
+    "Topic :: Text Processing :: Markup :: HTML",
+    "Topic :: Sociology :: Genealogy"
+]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
-matplotlib = "^3.8.4"
 yattag = "^1.15.2"
 ged4py = "^0.4.4"
 
