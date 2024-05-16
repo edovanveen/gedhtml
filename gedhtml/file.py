@@ -37,7 +37,7 @@ class FamRef(Enum):
     CHIL = "child_refs"
 
 
-def parse_records(parser, record_name, records_enum, refs_enum):
+def _parse_records(parser, record_name, records_enum, refs_enum):
     for record in parser.records0(record_name):
         kwargs = {"ref": record.xref_id}
         for ref in refs_enum:
@@ -60,7 +60,8 @@ def parse_records(parser, record_name, records_enum, refs_enum):
         yield kwargs
 
 
-def load(file_path):
+def load(file_path: str) -> FamilyTree:
+    """Parse a GEDCOM file and return a FamilyTree object."""
 
     family_tree = FamilyTree()
 
@@ -72,7 +73,7 @@ def load(file_path):
             notes[record.xref_id] = record.value
 
         # Parse individuals.
-        for kwargs in parse_records(parser, "INDI", IndiRecord, IndiRef):
+        for kwargs in _parse_records(parser, "INDI", IndiRecord, IndiRef):
 
             # Fill in notes by reference.
             for i, ref in enumerate(kwargs['notes']):
@@ -82,7 +83,7 @@ def load(file_path):
             family_tree.add_individual(Individual(**kwargs))
 
         # Parse families.
-        for kwargs in parse_records(parser, "FAM", FamRecord, FamRef):
+        for kwargs in _parse_records(parser, "FAM", FamRecord, FamRef):
             family_tree.add_family(Family(**kwargs))
 
         return family_tree

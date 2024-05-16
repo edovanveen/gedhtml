@@ -4,3 +4,4 @@ __pycache__/*
 tests/data/gedfile_vanveen.ged
 tests/output/*
 run.txt
+dist/*
