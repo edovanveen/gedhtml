@@ -21,6 +21,6 @@ else:
     ref = list(fam_tree.individuals.keys())[0]
     id = fam_tree.individuals[ref].id
 
-lang: str = gedhtml.language.choose(args.language)  # ERRONEOUS type to test workflow
+lang = gedhtml.language.choose(args.language)
 
 gedhtml.webpage.generate(fam_tree, id, args.outputdir, args.title, args.description, lang)
